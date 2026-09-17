@@ -18,7 +18,7 @@ export default function ({ pugOptions = {}, pugLocals = {} } = {}) {
         );
 
         server.ws.send({
-          type: 'full-reload',
+          type: 'full-reload'
         });
 
         return [];
@@ -28,8 +28,13 @@ export default function ({ pugOptions = {}, pugLocals = {} } = {}) {
     transformIndexHtml: {
       order: 'pre',
       handler(html, { filename }) {
-        const updatedHtml = html.replace(/<template(.|\n)*?data-type="pug"(.|\n)*?(\/>|<\/template>)/g, (matchedString) => {
-          const [, rawTemplatePath] = matchedString.match(/data-src=["'](.*?)["']/) || [];
+        return html.replace(
+          /<!--[\s\S]*?-->|<template\b[^>]*\bdata-type\s*=\s*["']pug["'][^>]*(?:\/\s*>|>\s*<\/template\s*>)/gi,
+          (matchedString) => {
+            // Ignore commented-out Pug templates.
+            if (matchedString.startsWith('<!--')) {
+              return matchedString;
+            }
 
           if (!rawTemplatePath) {
             throw new Error(`Template path not specified for ${matchedString}`);
@@ -39,11 +44,10 @@ export default function ({ pugOptions = {}, pugLocals = {} } = {}) {
           const templateFilePath = path.join(entryFileDir, rawTemplatePath);
 
           return compileFile(templateFilePath, pugOptions)(pugLocals);
-        });
-
-        return updatedHtml;
-      },
-    },
+          }
+        );
+      }
+    }
   };
 
   // Properties for supporting old versions of Vite
