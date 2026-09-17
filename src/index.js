@@ -6,6 +6,16 @@ function getShortName(file, root) {
   return file.startsWith(root + '/') ? path.posix.relative(root, file) : file;
 }
 
+function getTemplatePath(template, filename) {
+  const [, rawTemplatePath] = template.match(/\bdata-src\s*=\s*["']([^"']+)["']/i) || [];
+
+  if (!rawTemplatePath) {
+    throw new Error(`Template path not specified for ${template}`);
+  }
+
+  return path.resolve(path.dirname(filename), rawTemplatePath);
+}
+
 export default function ({ pugOptions = {}, pugLocals = {} } = {}) {
   const plugin = {
     name: 'vite-plugin-pug-transformer',
@@ -36,14 +46,9 @@ export default function ({ pugOptions = {}, pugLocals = {} } = {}) {
               return matchedString;
             }
 
-          if (!rawTemplatePath) {
-            throw new Error(`Template path not specified for ${matchedString}`);
-          }
+            const templateFilePath = getTemplatePath(matchedString, filename);
 
-          const entryFileDir = filename.replace(/(.*)\/.*\.html$/, '$1');
-          const templateFilePath = path.join(entryFileDir, rawTemplatePath);
-
-          return compileFile(templateFilePath, pugOptions)(pugLocals);
+            return compileFile(templateFilePath, pugOptions)(pugLocals);
           }
         );
       }
