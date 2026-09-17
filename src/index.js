@@ -16,48 +16,57 @@ function getTemplatePath(template, filename) {
   return path.resolve(path.dirname(filename), rawTemplatePath);
 }
 
+function transformPugTemplates(html, filename, pugOptions, pugLocals) {
+  return html.replace(
+    /<!--[\s\S]*?-->|<template\b[^>]*\bdata-type\s*=\s*["']pug["'][^>]*(?:\/\s*>|>\s*<\/template\s*>)/gi,
+    (matchedString) => {
+      // Ignore commented-out Pug templates.
+      if (matchedString.startsWith('<!--')) {
+        return matchedString;
+      }
+
+      const templateFilePath = getTemplatePath(matchedString, filename);
+
+      return compileFile(templateFilePath, pugOptions)(pugLocals);
+    }
+  );
+}
+
 export default function ({ pugOptions = {}, pugLocals = {} } = {}) {
-  const plugin = {
+  return {
     name: 'vite-plugin-pug-transformer',
 
-    handleHotUpdate({ file, server }) {
-      if (file.endsWith('.pug')) {
-        server.config.logger.info(
-          colors.green('page reload ') + colors.dim(getShortName(file, server.config.root)),
-          { clear: true, timestamp: true }
-        );
+    transform(code, id) {
+      if (!id.endsWith('.html')) return;
 
-        server.ws.send({
-          type: 'full-reload'
-        });
+      const transformedCode = transformPugTemplates(code, id, pugOptions, pugLocals);
 
-        return [];
-      }
+      if (transformedCode === code) return;
+
+      return {
+        code: transformedCode,
+        map: null
+      };
     },
 
-    transformIndexHtml: {
-      order: 'pre',
-      handler(html, { filename }) {
-        return html.replace(
-          /<!--[\s\S]*?-->|<template\b[^>]*\bdata-type\s*=\s*["']pug["'][^>]*(?:\/\s*>|>\s*<\/template\s*>)/gi,
-          (matchedString) => {
-            // Ignore commented-out Pug templates.
-            if (matchedString.startsWith('<!--')) {
-              return matchedString;
-            }
-
-            const templateFilePath = getTemplatePath(matchedString, filename);
-
-            return compileFile(templateFilePath, pugOptions)(pugLocals);
-          }
-        );
+    handleHotUpdate({ file, server }) {
+      if (!file.endsWith('.pug')) {
+        return;
       }
+
+      server.config.logger.info(
+        colors.green('page reload ') + colors.dim(getShortName(file, server.config.root)),
+        {
+          clear: true,
+          timestamp: true
+        }
+      );
+
+      server.ws.send({
+        type: 'full-reload'
+      });
+
+      return [];
     }
   };
-
-  // Properties for supporting old versions of Vite
-  plugin.transformIndexHtml.enforce = plugin.transformIndexHtml.order;
-  plugin.transformIndexHtml.transform = plugin.transformIndexHtml.handler;
-
-  return plugin;
 }
