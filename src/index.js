@@ -37,9 +37,11 @@ export default function ({ pugOptions = {}, pugLocals = {} } = {}) {
     name: 'vite-plugin-pug-transformer',
 
     transform(code, id) {
-      if (!id.endsWith('.html')) return;
+      const filePath = id.split('?', 1)[0];
 
-      const transformedCode = transformPugTemplates(code, id, pugOptions, pugLocals);
+      if (!filePath.endsWith('.html')) return;
+
+      const transformedCode = transformPugTemplates(code, filePath, pugOptions, pugLocals);
 
       if (transformedCode === code) return;
 
@@ -47,6 +49,14 @@ export default function ({ pugOptions = {}, pugLocals = {} } = {}) {
         code: transformedCode,
         map: null
       };
+    },
+
+    transformIndexHtml: {
+      order: 'pre',
+
+      handler(html, { filename }) {
+        return transformPugTemplates(html, filename, pugOptions, pugLocals);
+      }
     },
 
     handleHotUpdate({ file, server }) {
