@@ -250,4 +250,26 @@ test('should expose transform hook', () => {
   assert.type(plugin.transform, 'function');
 });
 
+test('should transform Pug templates in dev', () => {
+  // ARRANGE
+  const html = `
+    <body>
+      <template
+        data-type="pug"
+        data-src="./template.pug"
+      ></template>
+    </body>
+  `;
+
+  const plugin = pugPlugin();
+
+  plugin.configResolved({ command: 'serve' });
+
+  // ACTION
+  const result = plugin.transformIndexHtml.handler(html, { filename: entryFilePath });
+
+  // ASSERT
+  assert.ok(result.includes('<p>Pug</p>'));
+});
+
 test.run();
